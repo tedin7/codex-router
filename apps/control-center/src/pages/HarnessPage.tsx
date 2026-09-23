@@ -305,7 +305,9 @@ export function HarnessPage({ target, api, refreshing, operation, onRefresh, run
                       </span>
                     </span>
                     <div className="lhc-harness-launch">
-                      {enabled ? (
+                      {enabled && (harness.id === "codex" || harness.id === "dsh") ? (
+                        <span className="lhc-harness-hint">Runs start in Arvos Run Agenti</span>
+                      ) : enabled ? (
                         <>
                           <Button
                             className="lhc-harness-icon-btn"

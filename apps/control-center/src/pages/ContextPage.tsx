@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  AppWindow,
   Archive,
   BrainCircuit,
   Clock3,
@@ -42,13 +41,12 @@ interface ContextPageProps {
   runAction: RunAction;
 }
 
-export function ContextPage({ target, api, refreshing, onRefresh, runAction }: ContextPageProps) {
+export function ContextPage({ api, refreshing, onRefresh, runAction }: ContextPageProps) {
   const [snapshot, setSnapshot] = useState<ContextSessionsSnapshot>();
   const [harnesses, setHarnesses] = useState<HarnessSnapshot>();
   const [search, setSearch] = useState("");
   const [harnessFilter, setHarnessFilter] = useState<"all" | HarnessId>("all");
   const [showArchived, setShowArchived] = useState(false);
-  const [codexModel, setCodexModel] = useState("");
   const [visibleCount, setVisibleCount] = useState(200);
   const [error, setError] = useState<string>();
 
@@ -66,7 +64,6 @@ export function ContextPage({ target, api, refreshing, onRefresh, runAction }: C
 
   useEffect(() => { void loadSessions(); }, [loadSessions]);
 
-  const enabledModels = target?.models.filter((model) => model.enabled || model.native) ?? [];
   const filtered = useMemo(() => {
     const needle = search.trim().toLowerCase();
     return (snapshot?.sessions ?? []).filter((session) => {
@@ -92,8 +89,7 @@ export function ContextPage({ target, api, refreshing, onRefresh, runAction }: C
   };
   const openSession = async (session: HarnessSession, surface: "app" | "terminal") => {
     if (!api) return;
-    const model = session.harnessId === "codex" && surface === "terminal" && codexModel ? codexModel : undefined;
-    await runAction(`Open ${session.title}`, () => api.openHarnessSession(session.harnessId, session.id, surface, model));
+    await runAction(`Open ${session.title}`, () => api.openHarnessSession(session.harnessId, session.id, surface));
   };
 
   return (
@@ -101,7 +97,7 @@ export function ContextPage({ target, api, refreshing, onRefresh, runAction }: C
       <PageHeader
         eyebrow="Cross-harness history"
         title="Context Manager"
-        description="Find and resume Codex, DeepSeek Harness, and Cursor sessions from one continuity view."
+        description="Inspect indexed session metadata and resume Cursor sessions."
         onRefresh={refresh}
         refreshing={refreshing}
       />
@@ -112,22 +108,14 @@ export function ContextPage({ target, api, refreshing, onRefresh, runAction }: C
         { label: "Cached context", value: inputTokens ? `${cachePercent}%` : "Unreported", detail: inputTokens ? `${compactNumber(cachedTokens)} reused tokens` : "Session metadata only" },
       ]} />
 
-      <InlineNotice tone="neutral" title="Continuity keeps ownership intact">
-        Opening a task resumes its original transcript in its owning harness. The control center does not copy or migrate conversation data between harnesses.
+      <InlineNotice tone="neutral" title="Run Agenti owns execution">
+        Start and resume Codex and DeepSeek tasks in Arvos Run Agenti.
       </InlineNotice>
       {error ? <InlineNotice tone="warning" title="Some session history is unavailable">{error}</InlineNotice> : null}
 
       <section className="panel-section lhc-context-controls">
-        <SectionHeading title="Resume behavior" description="A Codex terminal resume can keep the saved model or start the next turn with another enabled model." />
+        <SectionHeading title="Session index" description="Indexed metadata stays in each client’s own store." />
         <div className="lhc-context-options">
-          <label>
-            <span>Codex terminal model</span>
-            <select value={codexModel} disabled={!enabledModels.length} onChange={(event) => setCodexModel(event.target.value)}>
-              <option value="">Keep session model</option>
-              {enabledModels.map((model) => <option key={model.slug} value={model.slug}>{model.displayName}</option>)}
-            </select>
-            <small>This affects terminal resumes only. Desktop tasks keep their own model state.</small>
-          </label>
           <div className="lhc-context-boundary">
             <Waypoints aria-hidden size={19} strokeWidth={1.6} />
             <div><strong>One index, separate stores</strong><small>Codex, DeepSeek Harness, and Cursor continue to own their files, permissions, compaction, and credentials.</small></div>
@@ -158,9 +146,7 @@ export function ContextPage({ target, api, refreshing, onRefresh, runAction }: C
               <SessionRow
                 key={`${session.harnessId}:${session.id}`}
                 session={session}
-                appAvailable={session.harnessId === "codex" && Boolean(harnesses?.harnesses.find((item) => item.id === "codex")?.appInstalled)}
                 terminalAvailable={Boolean(harnesses?.terminalAvailable && harnesses.harnesses.find((item) => item.id === session.harnessId)?.cliInstalled)}
-                modelOverride={session.harnessId === "codex" ? codexModel : ""}
                 onOpen={openSession}
               />
             ))}
@@ -181,11 +167,9 @@ export function ContextPage({ target, api, refreshing, onRefresh, runAction }: C
   );
 }
 
-function SessionRow({ session, appAvailable, terminalAvailable, modelOverride, onOpen }: {
+function SessionRow({ session, terminalAvailable, onOpen }: {
   session: HarnessSession;
-  appAvailable: boolean;
   terminalAvailable: boolean;
-  modelOverride: string;
   onOpen: (session: HarnessSession, surface: "app" | "terminal") => Promise<void>;
 }) {
   const contextPercent = session.contextWindow && session.activeTokens
@@ -221,17 +205,16 @@ function SessionRow({ session, appAvailable, terminalAvailable, modelOverride, o
         </div>
       </div>
       <div className="lhc-session-actions">
-        {session.archived ? (
+        {session.harnessId === "codex" || session.harnessId === "dsh" ? (
+          <span className="lhc-archived-note">Runs in Arvos Run Agenti</span>
+        ) : session.archived ? (
           <span className="lhc-archived-note"><Archive aria-hidden size={13} strokeWidth={1.7} /> Restore in {harnessName(session.harnessId)} first</span>
         ) : (
           <>
-            {session.harnessId === "codex" ? (
-              <Button variant="secondary" disabled={!appAvailable} onClick={() => void onOpen(session, "app")}><AppWindow aria-hidden size={13} strokeWidth={1.7} /> Open app</Button>
-            ) : null}
             <Button
-              variant={session.harnessId === "codex" ? "ghost" : "primary"}
+              variant="primary"
               disabled={!terminalAvailable || !session.resumable}
-              title={!session.resumable ? "Open this session in its owning Cursor app first." : modelOverride ? `Resume with ${modelOverride}` : undefined}
+              title={!session.resumable ? "Open this session in its owning Cursor app first." : undefined}
               onClick={() => void onOpen(session, "terminal")}
             >
               <SquareTerminal aria-hidden size={13} strokeWidth={1.7} /> Resume
