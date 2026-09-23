@@ -722,6 +722,18 @@
   grid-template-columns: 72px;
 }
 
+.lhc-harness-run-note {
+  grid-column: 1 / -1;
+  display: flex;
+  min-height: 30px;
+  align-items: center;
+  justify-content: center;
+  width: 72px;
+  font-size: 11px;
+  text-align: center;
+  white-space: nowrap;
+}
+
 .lhc-harness-setup-btn {
   grid-column: 1 / -1;
   width: 72px;

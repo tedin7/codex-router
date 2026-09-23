@@ -615,7 +615,7 @@ test("install prunes approvals for skills the router no longer ships", () => {
 
 test(
   "an unreadable approved tree becomes stale instead of throwing",
-  { skip: process.platform === "win32" },
+  { skip: process.platform === "win32" || process.getuid?.() === 0 },
   () => {
     const home = tempCodexHome();
     const fakeSource = mkdtempSync(path.join(os.tmpdir(), "codex-skills-source-"));

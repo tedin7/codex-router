@@ -357,17 +357,22 @@ test("retry policy is bounded by one operation deadline and cancellation", async
   await assert.rejects(pending, (error) => error.code === "search_sidecar_cancelled");
 
   const started = Date.now();
-  await assert.rejects(
-    () => executeSearchSidecar({
-      binding: { ...binding, timeoutMs: 1_000, maxAttempts: 1 },
-      payload: { commands: { search_query: [{ q: "hung adapter" }] } },
-      accountScope: "account-a",
-      cache: new Map(),
-      providerForId: () => provider,
-      providerReady: () => true,
-      requestProvider: async () => new Promise(() => {}),
-    }),
-    (error) => error.code === "search_sidecar_timeout" && error.status === 504,
-  );
+  const keepAlive = setTimeout(() => {}, 1_750); // AbortSignal.timeout does not keep Node's test loop alive.
+  try {
+    await assert.rejects(
+      () => executeSearchSidecar({
+        binding: { ...binding, timeoutMs: 1_000, maxAttempts: 1 },
+        payload: { commands: { search_query: [{ q: "hung adapter" }] } },
+        accountScope: "account-a",
+        cache: new Map(),
+        providerForId: () => provider,
+        providerReady: () => true,
+        requestProvider: async () => new Promise(() => {}),
+      }),
+      (error) => error.code === "search_sidecar_timeout" && error.status === 504,
+    );
+  } finally {
+    clearTimeout(keepAlive);
+  }
   assert.ok(Date.now() - started < 1_750, "hung adapter exceeded the hard operation deadline");
 });
