@@ -894,6 +894,8 @@ test("the production renderer exposes model discovery and picker actions", { tim
     await page.getByRole("button", { name: "Context Manager", exact: true }).click();
     await page.getByRole("heading", { name: "Context Manager", exact: true }).waitFor();
     assert.equal(await page.locator(".lhc-session-row").count(), 3);
+    assert.equal(await page.locator(".lhc-session-row .lhc-archived-note").filter({ hasText: "Runs in Arvos Run Agenti" }).count(), 2);
+    assert.equal(await page.locator(".lhc-session-row").getByRole("button", { name: "Resume", exact: true }).count(), 1);
     assert.deepEqual(
       await page.locator('.segmented-control[aria-label="Filter sessions by harness"] button').allTextContents(),
       ["All", "Cursor", "DeepSeek Harness", "Codex"],
